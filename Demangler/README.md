@@ -9,7 +9,7 @@ AndroidNDKに付属されているc++filtやnmはバグがあり信用できな�
 - [ ] special-name
 - [ ] repeat
 - [ ] lambda
-- [ ] qualifiter
+- [ ] qualifier
 - [ ] return
 - [ ] bare-function
 - [ ] guard variables
