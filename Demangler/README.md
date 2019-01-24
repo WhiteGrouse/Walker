@@ -6,6 +6,7 @@ AndroidNDKに付属されているc++filtやnmはバグがあり信用できな�
 - [x] name
 - [x] template
 - [x] nested
+- [ ] substitution
 - [ ] special-name
 - [ ] repeat
 - [ ] lambda
