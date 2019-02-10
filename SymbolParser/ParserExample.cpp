@@ -1,45 +1,98 @@
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <exception>
 
-class TOKEN {};
+enum TOKEN_TYPE {
+	Name,
+	Scope,
+	Boundary,
+	Temporary,
+	Template,
+	Bracket,
+	SquareBracket
+};
+class TOKEN {
+public:
+	virtual ~TOKEN() = default;
+
+	virtual TOKEN_TYPE GetType() = 0;
+};
 class NAME : public TOKEN {
 public:
 	std::string Name;
 
 	NAME(std::string name) : Name(name) {}
+
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::Name;
+	}
 };
-class SCOPE : public TOKEN {};
-class BOUNDARY : public TOKEN {};
+class SCOPE : public TOKEN {
+public:
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::Scope;
+	}
+};
+class BOUNDARY : public TOKEN {
+public:
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::Boundary;
+	}
+};
 class TMP : public TOKEN {
 public:
 	std::string Str;
 
 	TMP(std::string str) : Str(str) {}
-};
-class TEMPLATE : public TOKEN {
-public:
-	std::vector<std::vector<TOKEN>> Args;
 
-	TEMPLATE(std::vector<std::vector<TOKEN>>& args) : Args(args) {}
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::Temporary;
+	}
 };
-class BRACKET : public TOKEN {
+class TOKEN_HasArgs : public TOKEN {
 public:
-	std::vector<std::vector<TOKEN>> Args;
+	std::vector<std::vector<TOKEN*>> Args;
 
-	BRACKET(std::vector<std::vector<TOKEN>>& args) : Args(args) {}
+	TOKEN_HasArgs(std::vector<std::vector<TOKEN*>>& args) : Args(args) {}
+
+	virtual ~TOKEN_HasArgs() {
+		for (auto& tokens : Args) {
+			for (int i = 0; i < tokens.size(); ++i) {
+				delete tokens[i];
+			}
+		}
+	}
 };
-class SQUARE_BRACKET : public TOKEN {
+class TEMPLATE : public TOKEN_HasArgs {
 public:
-	std::vector<std::vector<TOKEN>> Args;
+	TEMPLATE(std::vector<std::vector<TOKEN*>>& args) : TOKEN_HasArgs(args) {}
 
-	SQUARE_BRACKET(std::vector<std::vector<TOKEN>>& args) : Args(args) {}
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::Template;
+	}
+};
+class BRACKET : public TOKEN_HasArgs {
+public:
+	BRACKET(std::vector<std::vector<TOKEN*>>& args) : TOKEN_HasArgs(args) {}
+
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::Bracket;
+	}
+};
+class SQUARE_BRACKET : public TOKEN_HasArgs {
+public:
+	SQUARE_BRACKET(std::vector<std::vector<TOKEN*>>& args) : TOKEN_HasArgs(args) {}
+
+	TOKEN_TYPE GetType() override {
+		return TOKEN_TYPE::SquareBracket;
+	}
 };
 
 class Parser {
 public:
-	static std::vector<TOKEN> Parse(std::string demangled) {
+	static std::vector<TOKEN*> Parse(std::string& demangled) {
 		Parser parser(Sanitize(demangled));
 		parser._Parse();
 		return parser.Tokens;
@@ -50,7 +103,7 @@ private:
 
 	const std::string Demangled;
 	int Current = 0;
-	std::vector<TOKEN> Tokens;
+	std::vector<TOKEN*> Tokens;
 
 	static void ReplaceInPlace(std::string& str, const std::string& oldValue, const std::string& newValue) {
 		size_t index = 0;
@@ -91,55 +144,55 @@ private:
 		for (; Current < Demangled.length(); ++Current) {
 			if (start.find(Demangled[Current]) != std::string::npos) {
 				if (buf.length() > 0) {
-					Tokens.push_back(NAME(buf));
+					Tokens.push_back(new NAME(buf));
 					buf = "";
 				}
 				if (Demangled[Current] == '<') {
-					std::vector<std::vector<TOKEN>> args;
+					std::vector<std::vector<TOKEN*>> args;
 					for (auto& token : _Split(_Cut())) {
 						args.push_back(Parse(token));
 					}
-					Tokens.push_back(TEMPLATE(args));
+					Tokens.push_back(new TEMPLATE(args));
 				}
 				else if (Demangled[Current] == '(') {
-					std::vector<std::vector<TOKEN>> args;
+					std::vector<std::vector<TOKEN*>> args;
 					for (auto& token : _Split(_Cut())) {
 						args.push_back(Parse(token));
 					}
-					Tokens.push_back(BRACKET(args));
+					Tokens.push_back(new BRACKET(args));
 				}
 				else if (Demangled[Current] == '[') {
-					std::vector<std::vector<TOKEN>> args;
+					std::vector<std::vector<TOKEN*>> args;
 					for (auto& token : _Split(_Cut())) {
 						args.push_back(Parse(token));
 					}
-					Tokens.push_back(SQUARE_BRACKET(args));
+					Tokens.push_back(new SQUARE_BRACKET(args));
 				}
 				else if (Demangled[Current] == '{') {
-					Tokens.push_back(TMP(_Cut()));
+					Tokens.push_back(new TMP(_Cut()));
 				}
 			}
 			else if (_CheckToken("::")) {
 				if (buf.length() > 0) {
-					Tokens.push_back(NAME(buf));
+					Tokens.push_back(new NAME(buf));
 					buf = "";
 				}
-				Tokens.push_back(SCOPE());
+				Tokens.push_back(new SCOPE());
 				++Current;
 			}
 			else if (NAME_CHARSET.find(Demangled[Current]) == std::string::npos) {
 				if (buf.length() > 0) {
-					Tokens.push_back(NAME(buf));
+					Tokens.push_back(new NAME(buf));
 					buf = "";
 				}
-				Tokens.push_back(BOUNDARY());
+				Tokens.push_back(new BOUNDARY());
 			}
 			else {
 				buf += Demangled[Current];
 			}
 		}
 		if (buf.length() > 0) {
-			Tokens.push_back(NAME(buf));
+			Tokens.push_back(new NAME(buf));
 		}
 	}
 
@@ -201,9 +254,15 @@ private:
 
 int main(void) {
 	std::string symbol;
-	std::cout << "> ";
-	std::getline(std::cin, symbol);
-	auto tokens = Parser::Parse(symbol);
+	while (true) {
+		std::cout << "> ";
+		std::getline(std::cin, symbol);
+		auto tokens = Parser::Parse(symbol);
+
+		for (auto* token : tokens) {
+			delete token;
+		}
+	}
 
 	return 0;
 }
