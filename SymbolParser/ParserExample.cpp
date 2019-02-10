@@ -252,12 +252,65 @@ private:
 	}
 };
 
+std::string serialize(const std::vector<TOKEN*>& tokens) {
+	std::ostringstream str;
+	for (int index = 0; index < tokens.size(); ++index) {
+		TOKEN* token = tokens[index];
+		if (token->GetType() == TOKEN_TYPE::Name) {
+			str << "@" << index << ">NAME<" << ((NAME*)token)->Name << ">";
+		}
+		else if (token->GetType() == TOKEN_TYPE::Scope) {
+			str << "@" << index << ">SCOPE";
+		}
+		else if (token->GetType() == TOKEN_TYPE::Boundary) {
+			str << "@" << index << ">BOUNDARY";
+		}
+		else if (token->GetType() == TOKEN_TYPE::Template) {
+			str << "@" << index << ">TEMPLATE";
+		}
+		else if (token->GetType() == TOKEN_TYPE::Bracket) {
+			str << "@" << index << ">BRACKET";
+		}
+		else if (token->GetType() == TOKEN_TYPE::SquareBracket) {
+			str << "@" << index << ">SQUARE_BRACKET";
+		}
+		else if (token->GetType() == TOKEN_TYPE::Temporary) {
+			str << "@" << index << ">TMP";
+		}
+	}
+	return str.str();
+}
+
+std::vector<TOKEN*> deserialize(const std::vector<TOKEN*>& tokens, const std::string& serialized) {
+	std::vector<TOKEN*> list;
+	bool read = false;
+	std::string num;
+	for (auto& c : serialized) {
+		if (read) {
+			if ('0' <= c && c <= '9') {
+				num += c;
+			}
+			else {
+				list.push_back(tokens[std::stoi(num)]);
+				read = false;
+				num.clear();
+			}
+		}
+		if (c == '@') {
+			read = true;
+		}
+	}
+	return list;
+}
+
 int main(void) {
 	std::string symbol;
 	while (true) {
 		std::cout << "> ";
 		std::getline(std::cin, symbol);
 		auto tokens = Parser::Parse(symbol);
+		std::cout << serialize(tokens) << std::endl << std::endl;
+		auto deserialized = deserialize(tokens, serialize(tokens));
 
 		for (auto* token : tokens) {
 			delete token;
