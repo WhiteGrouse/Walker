@@ -1,4 +1,5 @@
-# Walker 自動解析ツール
+# Walker ReverseEngineering Tool
 - libminecraftpe.soの静的解析
-- 通信の解析
-- win10版とAndroid版の操作を自動化
+- 名前空間・クラス・関数、定数などを見つけてヘッダファイルとして出力
+- 部分的なC++コードへのデコンパイル
+- リバースエンジニアリングしやすいよう各種情報をデータベースに出力
