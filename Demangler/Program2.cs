@@ -21,7 +21,6 @@ namespace Demangler
         {
             var NumberL = new NumberLiteral("number", NumberOptions.IntOnly | NumberOptions.AllowLetterAfter);
             var SourceNameL = new StringWithLengthLiteral("source-name");
-            var Identifier = new IdentifierTerminal("identifier");
 
             var MangledName = new NonTerminal("mangled-name");
             var Encoding = new NonTerminal("encoding");
@@ -84,7 +83,7 @@ namespace Demangler
             var UnresolvedQualifierLevel = new NonTerminal("unresolved-qualifier-level");
             var SimpleId = new NonTerminal("simple-id");
             var DestructorName = new NonTerminal("destructor-name");
-            var Float = new NonTerminal("float");
+            var Float = new NumberLiteral("float", NumberOptions.AllowLetterAfter);
 
             var Discriminator = new NonTerminal("discriminator");
 
@@ -384,7 +383,20 @@ namespace Demangler
                 | ToTerm("Si")
                 | ToTerm("So")
                 | ToTerm("Sd");
+            SpecialName.Rule =
+                (ToTerm("TV") + Type)
+                | (ToTerm("TT") + Type)
+                | (ToTerm("TI") + Type)
+                | (ToTerm("TS") + Type)
+                | (ToTerm("T") + CallOffset + Encoding)
+                | (ToTerm("Tc") + CallOffset + Encoding)
+                | (ToTerm("GV") + Name)
+                | (ToTerm("GR") + Name + SeqId.Q() + ToTerm("_"));
 
+            Encoding.Rule =
+                (Name + BareFunctionType)
+                | Name
+                | SourceNameL;
             MangledName.Rule = ToTerm("_Z") + Encoding;
 
             Root = MangledName;
