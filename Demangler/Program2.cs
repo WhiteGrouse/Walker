@@ -80,6 +80,7 @@ namespace Demangler
             var FunctionParam = new NonTerminal("function-param");
             var UnresolvedName = new NonTerminal("unresolved-name");
             var BaseUnresolvedName = new NonTerminal("base-unresolved-name");
+            var UnresolvedType = new NonTerminal("unresolved-type");
             var UnresolvedQualifierLevel = new NonTerminal("unresolved-qualifier-level");
             var SimpleId = new NonTerminal("simple-id");
             var DestructorName = new NonTerminal("destructor-name");
@@ -100,6 +101,14 @@ namespace Demangler
             TemplateArgPlusList.Rule = MakePlusRule(TemplateArgPlusList, TemplateArg);
             var TemplateArgStarList = new NonTerminal("template-arg_star");
             TemplateArgStarList.Rule = MakeStarRule(TemplateArgStarList, TemplateArg);
+            var ExpressionPlusList = new NonTerminal("expression_plus");
+            ExpressionPlusList.Rule = MakePlusRule(ExpressionPlusList, Expression);
+            var ExpressionStarList = new NonTerminal("expression_star");
+            ExpressionStarList.Rule = MakeStarRule(ExpressionStarList, Expression);
+            var BracedExpressionList = new NonTerminal("braced-expression_star");
+            BracedExpressionList.Rule = MakeStarRule(BracedExpressionList, BracedExpression);
+            var UnresolvedQualifierLevelList = new NonTerminal("unresolved-qualifier-level_plus");
+            UnresolvedQualifierLevelList.Rule = MakePlusRule(UnresolvedQualifierLevelList, UnresolvedQualifierLevel);
 
             Name.Rule =
                   NestedName
@@ -269,7 +278,9 @@ namespace Demangler
                 | (ToTerm("Ts") + Name)
                 | (ToTerm("Tu") + Name)
                 | (ToTerm("Te") + Name);
-            UnnamedTypeName.Rule = ToTerm("Ut") + NumberL.Q() + ToTerm("_");
+            UnnamedTypeName.Rule =
+                (ToTerm("Ut") + NumberL.Q() + ToTerm("_"))
+                | ClosureTypeName;
             ArrayType.Rule =
                 (ToTerm("A") + NumberL + ToTerm("_") + Type)
                 | (ToTerm("A") + Expression.Q() + ToTerm("_") + Type);
@@ -287,7 +298,92 @@ namespace Demangler
                 | (ToTerm("X") + Expression + ToTerm("E"))
                 | ExprPrimary
                 | (ToTerm("J") + TemplateArgStarList + ToTerm("E"));
-
+            Expression.Rule =
+                (OperatorName + Expression)
+                | (OperatorName + Expression + Expression)
+                | (OperatorName + Expression + Expression + Expression)
+                | (ToTerm("pp_") + Expression)
+                | (ToTerm("mm_") + Expression)
+                | (ToTerm("cl") + ExpressionPlusList + ToTerm("E"))
+                | (ToTerm("cv") + Type + Expression)
+                | (ToTerm("cv") + Type + ToTerm("_") + ExpressionStarList + ToTerm("E"))
+                | (ToTerm("tl") + Type + BracedExpressionList + ToTerm("E"))
+                | (ToTerm("il") + BracedExpressionList + ToTerm("E"))
+                | (ToTerm("gs").Q() + ToTerm("nw") + ExpressionStarList + ToTerm("_") + Type + (ToTerm("E") | Initializer))
+                | (ToTerm("gs").Q() + ToTerm("na") + ExpressionStarList + ToTerm("_") + Type + (ToTerm("E") | Initializer))
+                | (ToTerm("gs").Q() + ToTerm("dl") + Expression)
+                | (ToTerm("gs").Q() + ToTerm("da") + Expression)
+                | (ToTerm("dc") + Type + Expression)
+                | (ToTerm("sc") + Type + Expression)
+                | (ToTerm("cc") + Type + Expression)
+                | (ToTerm("rc") + Type + Expression)
+                | (ToTerm("ti") + Type)
+                | (ToTerm("te") + Expression)
+                | (ToTerm("st") + Type)
+                | (ToTerm("sz") + Expression)
+                | (ToTerm("at") + Type)
+                | (ToTerm("az") + Expression)
+                | (ToTerm("nx") + Expression)
+                | TemplateParam
+                | FunctionParam
+                | (ToTerm("dt") + Expression + UnresolvedName)
+                | (ToTerm("pt") + Expression + UnresolvedName)
+                | (ToTerm("ds") + Expression + Expression)
+                | (ToTerm("sZ") + TemplateParam)
+                | (ToTerm("sP") + TemplateArgStarList + ToTerm("E"))
+                | (ToTerm("sp") + Expression)
+                | (ToTerm("tw") + Expression)
+                | ToTerm("tr")
+                | UnresolvedName
+                | ExprPrimary;
+            UnresolvedName.Rule =
+                (ToTerm("gs").Q() + BaseUnresolvedName)
+                | (ToTerm("sr") + UnresolvedType + BaseUnresolvedName)
+                | (ToTerm("srN") + UnresolvedType + UnresolvedQualifierLevelList + ToTerm("E") + BaseUnresolvedName)
+                | (ToTerm("gs").Q() + ToTerm("sr") + UnresolvedQualifierLevelList + ToTerm("E") + BaseUnresolvedName);
+            UnresolvedType.Rule =
+                (TemplateParam + TemplateArgs.Q())
+                | Decltype
+                | Substitution;
+            UnresolvedQualifierLevel.Rule = SimpleId;
+            SimpleId.Rule = SourceNameL + TemplateArgs.Q();
+            BaseUnresolvedName.Rule =
+                SimpleId
+                | (ToTerm("on") + OperatorName + TemplateArgs.Q())
+                | (ToTerm("dn") + DestructorName);
+            DestructorName.Rule = UnresolvedType | SimpleId;
+            ExprPrimary.Rule =
+                (ToTerm("L") + Type + NumberL + ToTerm("E"))
+                | (ToTerm("L") + Type + Float + ToTerm("E"))
+                | (ToTerm("L") + Type + ToTerm("E"))
+                | (ToTerm("L") + Type + ToTerm("0E"))
+                | (ToTerm("L") + Type + Float + ToTerm("_") + Float + ToTerm("E"))
+                | (ToTerm("L") + MangledName + ToTerm("E"));
+            BracedExpression.Rule =
+                Expression
+                | (ToTerm("di") + SourceNameL + BracedExpression)
+                | (ToTerm("dx") + Expression + BracedExpression)
+                | (ToTerm("dX") + Expression + Expression + BracedExpression);
+            Initializer.Rule = ToTerm("pi") + ExpressionStarList + ToTerm("E");
+            LocalName.Rule =
+                (ToTerm("Z") + Encoding + ToTerm("E") + Name + Discriminator.Q())
+                | (ToTerm("Z") + Encoding + ToTerm("Es") + Discriminator.Q())
+                | (ToTerm("Z") + Encoding + ToTerm("Ed") + NumberL.Q() + ToTerm("_") + Name);
+            Discriminator.Rule =
+                (ToTerm("_") + NumberL)
+                | (ToTerm("__") + NumberL + ToTerm("_"));
+            ClosureTypeName.Rule = ToTerm("Ul") + LambdaSig + ToTerm("E") + NumberL.Q() + ToTerm("_");
+            LambdaSig.Rule = TypeList;
+            DataMemberPrefix.Rule = SourceNameL + TemplateArg.Q() + ToTerm("M");
+            Substitution.Rule =
+                (ToTerm("S") + SeqId.Q() + ToTerm("_"))
+                | (ToTerm("St") + UnqualifiedName.Q())
+                | ToTerm("Sa")
+                | ToTerm("Sb")
+                | ToTerm("Ss")
+                | ToTerm("Si")
+                | ToTerm("So")
+                | ToTerm("Sd");
 
             MangledName.Rule = ToTerm("_Z") + Encoding;
 
